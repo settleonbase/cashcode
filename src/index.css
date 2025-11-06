@@ -80,3 +80,25 @@ body { margin: 0; }
 
 /* 可选：统一盒模型，避免怪异计算导致微偏移 */
 *, *::before, *::after { box-sizing: border-box; }
+
+/* ---- Safari 黑块修复（iOS/macOS） ---- */
+:root {
+  /* 禁止 WebKit 根据系统深色模式自动调整控件/背景，避免莫名其妙的黑块 */
+  color-scheme: light;
+}
+
+html, body {
+  background: #fff; /* 明确页面底色 */
+}
+
+/* Safari 圆角 + 阴影合成偶发黑角：用 mask 触发正确的合成路径 */
+@supports (-webkit-appearance: none) {
+  .ios-rounded-fix {
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+  }
+}
+
+/* iOS 点按高亮去掉，避免黑色闪块 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
