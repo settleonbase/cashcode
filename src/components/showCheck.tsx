@@ -305,7 +305,7 @@ const ShowCheck = forwardRef<CheckHandle, Props>(function ShowCheck({
 
 	return (
 		<div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-			<div className="w-full max-w-md bg-white text-black border border-black shadow-2xl rounded-3xl overflow-hidden">
+			<div className="w-full max-w-md bg-white text-black border border-black shadow-2xl rounded-3xl overflow-hidden flex flex-col max-h-screen">
 				<div className="relative overflow-hidden rounded-3xl border border-black/40 p-5 md:p-6 max-w-md">
 					{/* 顶部标签栏 */}
 					<div className="relative flex items-center justify-between border-b border-black/10 px-4 py-3">
@@ -340,7 +340,7 @@ const ShowCheck = forwardRef<CheckHandle, Props>(function ShowCheck({
 						{
 							!successTimestamp && 
 							<>
-													<div className="mt-4">
+								<div className="mt-4">
 							
 							
 						

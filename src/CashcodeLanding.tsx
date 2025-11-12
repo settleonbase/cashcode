@@ -193,39 +193,6 @@ export default function CashcodeLanding(): JSX.Element {
 	},[wallet, codeHash])
 
 
-//   // === Dev sanity checks (lightweight "tests") ===
-//   function _test_formatHumanCode(): void {
-//     const fakeSecret = "0x" + "ab".repeat(32);
-//     const human = `CHK-${fakeSecret.slice(2, 10).toUpperCase()}-${fakeSecret.slice(10, 18).toUpperCase()}`;
-//     console.assert(/^CHK-[0-9A-F]{8}-[0-9A-F]{8}$/.test(human), "human code format");
-//   }
-//   function _test_linkParams(): void {
-//     const q = new URLSearchParams({ id: "LNK-TEST-TEST", amt: amount, ccy: token }).toString();
-//     console.assert(q.includes("amt=") && q.includes("ccy="), "pay link contains required params");
-//   }
-//   function _test_i18n_fallback(): void {
-//     const fallback = (lng: Lang, cn: string, en: string, ja?: string): string => {
-//       if (lng === "cn") return cn;
-//       if (lng === "en") return en;
-//       return ja ?? en;
-//     };
-//     console.assert(fallback("ja", "中", "EN") === "EN", "ja without translation should fallback to EN");
-//   }
-//   useEffect(() => {
-//     if (typeof process === "undefined" || (process as any)?.env?.NODE_ENV !== "production") {
-//       const sample = rnd(4);
-//       console.assert(/^[A-Z0-9]{4}$/.test(sample), "rnd() should return 4 alnum uppercase chars");
-//       _test_formatHumanCode();
-//       _test_linkParams();
-//       _test_i18n_fallback();
-//       if (realMode && (USDC_BASE.startsWith("<") || CHECK_CONTRACT.startsWith("<"))) {
-//         console.warn("[Config] USDC_BASE or CHECK_CONTRACT missing — turn off 真实上链 or set env vars NEXT_PUBLIC_USDC_BASE/NEXT_PUBLIC_CHECK_CONTRACT.");
-//       }
-//     }
-//   }, [realMode, amount, token]);
-		// Listen new block headers to refresh balances dynamically
-
-
 	const HomeBody = () => {
 		return (
 			<>

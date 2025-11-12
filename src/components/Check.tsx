@@ -68,6 +68,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 	const [amount, setAmount] = useState<string>(defaultAmount.toFixed(2))
 	const [secureCode, setSecureCode] = useState<string>("")
 	const [redeemCode, setRedeemCode] = useState<string>("")
+	const [redeemHash, setRedeemHash] = useState<string>("")
 	const [note, setNote] = useState<string>(
 		t("这是使用Cashcode的收款测试", "This is a Cashcode payment test", "これはCashcodeの支払いテストです")
 	)
@@ -76,7 +77,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 	const inputRef = useRef<HTMLInputElement | null>(null)
 	const wrapperRef = useRef<HTMLDivElement | null>(null)
 	
-	const [result] = useState('')
+	const [result, setResult] = useState('')
 	const [process, setProcess] = useState(false)
 	const [secureError, setSecureError] = useState<string>("")
 	const [showCcWallet, setShowCcWallet] = useState(false)
@@ -167,7 +168,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 				inputRef.current?.focus()
 				inputRef.current?.select()
 			})
-			return
+			return false
 		}
 		if (v > ccAccountUSDC_Balance) {
 			setError(
@@ -180,7 +181,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 				inputRef.current?.focus()
 				inputRef.current?.select()
 			})
-			return
+			return false
 		}
 		//   // ✅ 增加：不能超过 1000 美元
 		// if (v > 1000.1) {
@@ -194,6 +195,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 		// 格式化
 		setAmount(formatWithThousands(v))
 		setError("")
+		return true
 	}
 
 	const handleWalletClick = () => {
@@ -259,9 +261,13 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 	// }
 
 	const generateCashCodeCCWallet = async () => {
-		if (process) {
+		
+		const check = handleBlur()
+		
+		if (process||!check) {
 			return
 		}
+
 		setProcess(true)
 
 		const isLocal = false
@@ -270,6 +276,7 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 		const price = Number(String(amount).replace(/,/g, "")).toString()
 		const code = generateCODE(secureCode.replace('-',''))
 		setRedeemCode(code.code)
+		setRedeemHash(code.hash)
 		const params = new URLSearchParams({amount:price, note, secureCode, hash: code.hash, lang}).toString()
 		const path = `/api/cashCode?${params}`
 
@@ -285,18 +292,34 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 
 	const x402Sign = (data: any) => {
 		setSignx402Show(false)
-		setProcess(false)
-		if (!data) {
-			return setError(t("取消签字", "Cancel Signature", "署名をキャンセル"))
+		if (typeof data === 'boolean') {
+			if (!data) {
+				
+				setProcess(false)
+				return setError(t("取消签字", "Cancel Signature", "署名をキャンセル"))
+			}
+
+			return
 		}
+		
+		setProcess(false)
+		if (data == null) {
+			return setError(t("发生错误，请稍后再试", "An error occurred, please try again later", "エラーが発生しました。しばらくしてからもう一度お試しください"))
+		}
+		const paramsRemote = new URLSearchParams({hash: redeemHash, lang}).toString()
+		const realUrl = `${origin}?${paramsRemote}`
+
+		console.log(data)
+		setResult(realUrl)
+		
 	} 
 
 	return (
-		<div className="relative overflow-hidden rounded-3xl border border-black/40 p-5 md:p-6 max-w-md">
+		<div className="relative overflow-hidden rounded-3xl border border-black/40 p-5 md:p-6 max-w-md flex-1 min-h-0 overflow-y-auto">
 			{
 				showCcWallet ? <CcWalletComp  address={ccAccount} onPrimaryAction={() => setShowCcWallet(false)} t={t} lang={lang} /> :
 				
-				signx402Show? <CCWallet_Sign url={requestUrl} final={x402Sign} t={t}  /> :!result ? <>
+				signx402Show? <CCWallet_Sign url={requestUrl} final={x402Sign} t={t}  /> : !result ? <>
 					{/* 顶部行 */}
 					<div className="flex items-center justify-between">
 						<div className="text-[22px] font-semibold tracking-wide text-black/80 leading-none">
@@ -468,8 +491,6 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 						<button
 							onClick={() => {
 								generateCashCodeCCWallet()
-								
-
 							}}
 							disabled={process}
 							className={`
@@ -485,7 +506,6 @@ const Check = forwardRef<CheckHandle, Props>(function Check({
 						</button>
 					): <button
 							onClick={() => {
-							
 								
 							}}
 							className="mt-4 w-full border border-black px-3 py-2 text-sm hover:bg-black hover:text-white transition rounded-xl"

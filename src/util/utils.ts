@@ -5,6 +5,24 @@ import {ethers, parseUnits} from 'ethers'
 import { wrapFetchWithPayment } from "x402-fetch";
 import {type x402Response} from '../util/eip6963'
 
+type AuthorizationPayload = {
+	x402Version: number
+	scheme: 'exact'
+	network: 'base' | string
+	payload: {
+		signature: `0x${string}`
+		authorization: {
+			from: string
+			to: string
+			value: string
+			validAfter: string
+			validBefore: string
+			nonce: `0x${string}`
+		}
+	}
+}
+
+
 export const customJsonStringify = (item: any) => {
   const result = JSON.stringify(
     item,
@@ -597,13 +615,37 @@ export function getCCWallet() {
 	}
 }
 
+export function getCCWalletPrivateKey() {
+	try {
+		const raw = localStorage.getItem('ccWallet')
+		if (!raw) return null
+
+		const returnData: ccWalletObj = JSON.parse(raw)
+
+		// ✅ 可选：校验数据结构（防止被污染）
+		if (typeof returnData !== 'object' || returnData === null) return null
+
+		return returnData.privateKey
+	} catch (err) {
+		console.error('getCCWallet error:', err)
+		return null
+	}
+}
+
+type ccWalletObj = {
+	address: string
+	privateKey: string
+	mnemonic: string|null
+	createdAt: number
+}
+
 export function createCCWallet() {
 	try {
 		// 1️⃣ 生成随机钱包
 		const wallet = ethers.Wallet.createRandom()
 
 		// 2️⃣ 构造保存的数据（⚠️ 不建议在生产环境明文保存私钥）
-		const ccWallet = {
+		const ccWallet: ccWalletObj = {
 			address: wallet.address,
 			privateKey: wallet.privateKey,
 			mnemonic: wallet.mnemonic?.phrase || null,
@@ -651,11 +693,12 @@ export const x402Payment = async (
   account: string,
   walletClient: any
 ): Promise<string> => {
-  if (!account || !walletClient) {
-    (window as any).openConnectWallet?.()
-    window.dispatchEvent(new CustomEvent('wallet:openConnectModal'))
-    return ''
-  }
+	if (!account || !walletClient) {
+		(window as any).openConnectWallet?.()
+		window.dispatchEvent(new CustomEvent('wallet:openConnectModal'))
+		return ''
+	}
+	const isLocal = false
 
   const params = new URLSearchParams({ amt, ccy: 'USDC', wallet: recipient }).toString()
   const path = `/api/settle?${params}`
@@ -663,7 +706,7 @@ export const x402Payment = async (
   try {
     const fetchWithPayment = wrapFetchWithPayment(fetch, walletClient, parseUnits(amt, 6))
     const remote = 'https://api.settleonbase.xyz' + path
-    // const local = "http://localhost:4088" + path
+    const local = "http://localhost:4088" + path
 
     // ==== 增加超时控制 ====
     const timeoutMs = 10000 // 30 秒
@@ -672,8 +715,8 @@ export const x402Payment = async (
     })
 
     const response = await Promise.race([
-      fetchWithPayment(remote, { method: 'GET' }),
-      timeoutPromise
+		fetchWithPayment(isLocal ? local : remote, { method: 'GET' }),
+		timeoutPromise
     ])
     // =====================
 
@@ -696,4 +739,92 @@ export const x402Payment = async (
     }
     return ''
   }
+}
+
+
+const toBase64 = (s: string) => {
+	const bytes = new TextEncoder().encode(s)
+	let binary = ''
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+	return btoa(binary)
+}
+
+const USDCContract_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+export async function AuthorizationSign(
+	amount: string,
+	to: string,
+): Promise<string> {
+  	// 1) 签名者
+	const privateKey = getCCWalletPrivateKey()
+	if (!privateKey) {
+		return ''
+	}
+
+	const wallet = new ethers.Wallet(privateKey)
+	const from = await wallet.getAddress()
+
+	// 2) 金额 & 时间窗（现在 - 1s 到 24h 后）
+	const value = BigInt(amount)
+	const now = BigInt(Math.floor(Date.now() / 1000))
+	const validAfter = now - 60n
+	const validBefore = now + 60n     
+
+	console.log(`AuthorizationSign validAfter = ${validAfter} validBefore ${validBefore}`)
+
+	// 3) 随机 nonce（bytes32）
+	const nonce = ethers.hexlify(ethers.randomBytes(32)) as `0x${string}`
+
+	// 4) EIP-712 域 & 类型 & 数据（与你合约里的 TYPEHASH 字段严格一致）
+	const domain = {
+		name: "USD Coin",          // ERC20Permit(name) -> 你的合约构造里是 "USDC"
+		version: "2",          // OpenZeppelin ERC20Permit 的默认版本是 "1"
+		chainId: 8453,     // 必须与链实际 ID 一致
+		verifyingContract: USDCContract_BASE,
+	} as const;
+
+	const AuthorizationTypes = {
+		TransferWithAuthorization: [
+		{ name: "from",        type: "address" },
+		{ name: "to",          type: "address" },
+		{ name: "value",       type: "uint256" },
+		{ name: "validAfter",  type: "uint256" },
+		{ name: "validBefore", type: "uint256" },
+		{ name: "nonce",       type: "bytes32"  },
+		],
+	}
+
+	const authorization = {
+		from,
+		to,
+		value: value.toString(),
+		validAfter: validAfter.toString(),
+		validBefore: validBefore.toString(),
+		nonce,
+  	}
+
+	// 5) 签名（返回 0x + 65 字节，合约的 bytes 接口可直接用
+	try {
+		const signature = await wallet.signTypedData(domain, AuthorizationTypes, authorization) as `0x${string}`
+		const ret: AuthorizationPayload = {
+			x402Version: 1,
+			scheme: 'exact',
+			network: 'base',
+			payload: {
+				signature,
+				authorization
+			}
+		}
+		console.log(ret)
+		const testSig = await wallet.signMessage("test")
+		console.log('Test signature:', testSig)
+
+		// ✅ 安全方式：支持 UTF-8 字符
+		const json = JSON.stringify(ret)
+		const base64 = toBase64(json)
+		return base64
+	} catch (ex: any) {
+		console.log(`wallet.signTypedData Error: ${ex.message}`)
+		return ''
+	}
+	
 }

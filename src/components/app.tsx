@@ -275,7 +275,6 @@ export default function cashcodeAPP ({ lang, setDemoOpen, wallet, amt, note }: P
 						!result &&
 							<div>
 								
-
 								{
 									tab !== "check" && (
 										<>
