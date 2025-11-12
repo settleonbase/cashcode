@@ -4,8 +4,7 @@ import CashcodeAPP from './components/app'
 import type {Lang, TranslateFn} from './util/i18n'
 import {makeT} from './util/i18n'
 import { parseQueryParams } from "./util/utils"
-
-
+import ShowCheck from './components/showCheck'
 
 
 
@@ -22,6 +21,7 @@ export default function CashcodeLanding(): JSX.Element {
 	const [wallet, setWallet] = useState('')
 	const [amt, setAmt] = useState('')
 	const [node, setNote] = useState('')
+	const [codeHash, setCodeHash] = useState('')
 
 	const t: TranslateFn = makeT(lang)
 	function Header() {
@@ -35,7 +35,7 @@ export default function CashcodeLanding(): JSX.Element {
 				</div>
 
 				<span className="font-semibold tracking-tight">
-					{t("码信钱包", "Cashcode Wallet", "Cashcode ウォレット")}
+					{t("CC钱包", "CashCode Wallet", "CashCode ウォレット")}
 				</span>
 				</div>
 
@@ -59,16 +59,7 @@ export default function CashcodeLanding(): JSX.Element {
 				</nav>
 
 				<div className="flex items-center gap-2 text-xs">
-					<button
-						onClick={() => setLang("cn")}
-						className={`rounded-full border px-2 py-1 text-lg transition ${
-							lang === "cn"
-								? "bg-[#f0f0f0] text-black border-black"
-								: "hover:bg-[#f9f9f9]"
-						}`}
-					>
-						🇨🇳
-					</button>
+					
 
 					<button
 						onClick={() => setLang("en")}
@@ -79,6 +70,17 @@ export default function CashcodeLanding(): JSX.Element {
 						}`}
 					>
 						🇺🇸
+					</button>
+
+					<button
+						onClick={() => setLang("cn")}
+						className={`rounded-full border px-2 py-1 text-lg transition ${
+							lang === "cn"
+								? "bg-[#f0f0f0] text-black border-black"
+								: "hover:bg-[#f9f9f9]"
+						}`}
+					>
+						🇨🇳
 					</button>
 
 					<button
@@ -111,10 +113,17 @@ export default function CashcodeLanding(): JSX.Element {
 					
 					{/* ✅ 左侧：Cashcode 动画图标 + 文本 */}
 					<div className="flex items-center gap-2">
-					<div className="h-5 w-5 flex items-center justify-center">
-						<CashcodeLogo />
-					</div>
-					<span>© {new Date().getFullYear()} Cashcode / CC钱包</span>
+						<div className="h-5 w-5 flex items-center justify-center">
+							<CashcodeLogo />
+						</div>
+						<span className="whitespace-nowrap">
+							© {new Date().getFullYear()}{" "}
+							{t(
+								"CashCode / CC钱包",      // 中文
+								"CashCode / CC Wallet",    // 英文
+								"CashCode / CCウォレット" // 日文
+							)}
+						</span>
 					</div>
 
 					{/* ✅ 右侧：隐私 / 条款 / GitHub */}
@@ -147,6 +156,11 @@ export default function CashcodeLanding(): JSX.Element {
 		)
 	}
 
+	const closeShowCheck = () => {
+		setCodeHash('')
+		setDemoOpen(false)
+	}
+
   	useEffect(() => {
 
 		const queryParams = parseQueryParams(window.location.search);
@@ -159,6 +173,7 @@ export default function CashcodeLanding(): JSX.Element {
 			const wallet = queryParams.get("wallet")||''
 			const _amt =  queryParams.get("amt")||''
 			const lang = queryParams.get("lang")||''
+			const _hash = queryParams.get("hash")||''
 			const _note = decodeURIComponent(queryParams.get("note"))||''
 			setWallet(wallet)
 			setID(id)
@@ -166,15 +181,16 @@ export default function CashcodeLanding(): JSX.Element {
 			setNote(_note)
 			setLang(lang)
 			makeT(lang)
+			setCodeHash(_hash)
 		}
 		
   	},[])
 
 	useEffect(() => {
-		if (wallet) {
+		if (wallet||codeHash) {
 			setDemoOpen(true)
 		}
-	},[wallet])
+	},[wallet, codeHash])
 
 
 //   // === Dev sanity checks (lightweight "tests") ===
@@ -222,9 +238,10 @@ export default function CashcodeLanding(): JSX.Element {
 					</h1>
 					<p className="mt-4 text-base text-black/70">
 						{t(
-						"USDC/USDT 的支票码、收款链接与直接 Send，零门槛、可止付/过期、统一账本。",
-						"USDC/USDT checks, payment links, and direct Send—zero friction, stop/expiry controls, unified ledger.",
-						"USDC/USDTのチェックコード・支払いリンク・ダイレクト送金。学習不要、停止/有効期限、統合台帳。"
+							"无需钱包地址，只要支付码和安全码，零GAS安全收款。",
+							"No wallet address needed — just a payment code and security code. Zero GAS, safe and simple.",
+							"ウォレットアドレス不要。支払いコードとセキュリティコードだけで、安全・GASゼロ受取。"
+
 						)}
 					</p>
 
@@ -523,7 +540,7 @@ export default function CashcodeLanding(): JSX.Element {
 					<div className="mt-8 grid gap-6 md:grid-cols-3">
 					<div className="border border-white p-6">
 						<h3 className="text-xl font-semibold">{t("基础版", "Basic", "ベーシック")}</h3>
-						<p className="mt-2 text-white/70 text-sm">{t("每笔 0.5% 手续费", "Per txn: 0.5% fee", "取引ごとに 0.5% 手数料")}</p>
+						<p className="mt-2 text-white/70 text-sm">{t("小额仅 0.1 U；20 U 及以上只收 0.5%", "Small transfers: 0.1 U. 20 U+ only 0.5%.", "少額は 0.1 U、20 U 以上は 0.5%のみ。")}</p>
 						<ul className="mt-4 space-y-2 text-sm text-white/80 list-disc pl-5">
 						<li>{t("支票/收款/Send 全部可用", "Checks/Links/Send included", "チェック／リンク／送金 すべて対応")}</li>
 						<li>{t("0 Gas 兑付（平台赞助可选）", "0-gas claims (optional sponsorship)", "ガス代ゼロの受け取り（任意のスポンサー）")}</li>
@@ -588,8 +605,10 @@ export default function CashcodeLanding(): JSX.Element {
       <Header />
 	  <main className="flex-1">
 		{
-			demoOpen 
-			? <CashcodeAPP setDemoOpen={setDemoOpen} lang={lang} id={id} wallet={wallet} amt={amt} note={node}/>
+			demoOpen
+			? codeHash
+				? <ShowCheck lang={lang} codeHash={codeHash} t={t} account={wallet} setDemoOpen={closeShowCheck} />
+				: <CashcodeAPP setDemoOpen={setDemoOpen} lang={lang} id={id} wallet={wallet} amt={amt} note={node}/>
 			: <HomeBody />
 		}
 	  </main>

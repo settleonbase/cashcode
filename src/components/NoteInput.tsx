@@ -49,12 +49,12 @@ const NodeInput: React.FC<NodeInputProps> = ({ note, setNote, t, lang }) => {
   const commit = () => {
     const trimmed = (nodeInput ?? "").trim();
     if (trimmed === "") {
-      setNodeInput(defaultNote);
-      setNote(defaultNote);
+		setNodeInput(defaultNote);
+		setNote(defaultNote);
     } else {
-      setNote(trimmed);
+      	setNote(trimmed);
     }
-  };
+  }
 
   return (
     <>
@@ -84,7 +84,13 @@ const NodeInput: React.FC<NodeInputProps> = ({ note, setNote, t, lang }) => {
             (e.currentTarget as HTMLInputElement).blur();
           }
         }}
-        className="w-full border border-black px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-black/20"
+        className="
+			w-full border-0 border-b border-black/20
+			bg-transparent outline-none
+			text-sm text-slate-800 pb-1
+			placeholder-black/30 mb-5
+			focus:border-black/50 transition-colors
+		"
         autoComplete="off"
         spellCheck={false}
         placeholder={defaultNote}

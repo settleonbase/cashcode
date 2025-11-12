@@ -41,3 +41,12 @@ export function pickByRDNS(rdnsList: string[]): EIP1193Provider | undefined {
   }
   return undefined;
 }
+
+export type x402Response = {
+	timestamp: string
+	network: string
+	payer: string
+	success: boolean
+	USDC_tx?: string
+	SETTLE_tx?: string
+}

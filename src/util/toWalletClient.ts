@@ -10,9 +10,9 @@ export function toWalletClient(
   // 如果不是 Base，你也可以根据 chainIdHex 动态选择链；当前项目固定 Base:
   const chain = base;
 
-  return createWalletClient({
+	return createWalletClient({
 		account: account as any,
 		chain,
 		transport: custom(provider),
-  });
+	});
 }

@@ -5,6 +5,7 @@ import coinbase_icon from "../assets/coinbase-icon.svg";
 import okx_icon from "../assets/okx-icon.png";
 // import { pickByRDNS } from "../util/eip6963";
 import { toWalletClient } from "../util/toWalletClient";
+import cash_icon from '../assets/cashcode_icon.svg'
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -13,24 +14,24 @@ function metamaskDeeplinkForThisPage() {
 }
 
 type EIP1193Provider = {
-  isMetaMask?: boolean;
-  isCoinbaseWallet?: boolean;
-  request: (args: { method: string; params?: any[] | object }) => Promise<any>;
-  on?: (event: string, cb: (...args: any[]) => void) => void;
-  removeListener?: (event: string, cb: (...args: any[]) => void) => void;
-};
+	isMetaMask?: boolean
+	isCoinbaseWallet?: boolean
+	request: (args: { method: string; params?: any[] | object }) => Promise<any>
+	on?: (event: string, cb: (...args: any[]) => void) => void
+	removeListener?: (event: string, cb: (...args: any[]) => void) => void
+}
 
 declare global {
-  interface Window {
-    // @ts-ignore
-    ethereum?: EIP1193Provider & { providers?: EIP1193Provider[] };
-    coinbaseWalletExtension?: { isCoinbaseWallet?: boolean } & EIP1193Provider;
-    openConnectWallet?: () => void;
-    disconnectWallet?: () => void;
+	interface Window {
+		// @ts-ignore
+		ethereum?: EIP1193Provider & { providers?: EIP1193Provider[] }
+		coinbaseWalletExtension?: { isCoinbaseWallet?: boolean } & EIP1193Provider;
+		openConnectWallet?: () => void;
+		disconnectWallet?: () => void;
   }
 }
 
-type WalletKind = "metamask" | "coinbase" | "okx";
+type WalletKind = "metamask" | "coinbase" | "okx"
 
 function emitWalletEvent(type: string, detail?: any) {
   try {
@@ -45,12 +46,12 @@ function debugWalletDetection() {
   
   // 1. 检查 window.ethereum
   console.log("window.ethereum:", {
-    exists: !!ethereum,
-    isMetaMask: ethereum?.isMetaMask,
-    isOkxWallet: ethereum?.isOkxWallet,
-    isOkExWallet: ethereum?.isOkExWallet,
-    isCoinbaseWallet: ethereum?.isCoinbaseWallet,
-    isTrust: ethereum?.isTrust,
+		exists: !!ethereum,
+		isMetaMask: ethereum?.isMetaMask,
+		isOkxWallet: ethereum?.isOkxWallet,
+		isOkExWallet: ethereum?.isOkExWallet,
+		isCoinbaseWallet: ethereum?.isCoinbaseWallet,
+		isTrust: ethereum?.isTrust,
   });
 
   // 2. 检查 providers 数组
@@ -107,7 +108,7 @@ if (typeof window !== "undefined") {
 	window.addEventListener("eip6963:announceProvider", (event: any) => {
 		const { info, provider } = event.detail;
 		if (info?.rdns) {
-		eip6963ProvidersRef.current.set(info.rdns, provider);
+			eip6963ProvidersRef.current.set(info.rdns, provider);
 		}
 	});
 	// 主动触发 EIP-6963 请求
@@ -240,73 +241,79 @@ function getInjectedProvider(kind: WalletKind): EIP1193Provider | undefined {
 
 const BASE_CHAIN_ID = "0x2105"; // Base Mainnet
 
-export default function ConnectWallet() {
-  const [open, setOpen] = useState(false)
-  const [connecting, setConnecting] = useState<WalletKind | null>(null)
-  const [address, setAddress] = useState<string | null>(null)
-  const [chainId, setChainId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [currentKind, setCurrentKind] = useState<WalletKind | null>(null)
+type Props = {
+	t: (cn: string, en: string, ja?: string) => string
+}
 
-  const providerRef = useRef<EIP1193Provider | null>(null)
-  const onAccountsChangedRef = useRef<((accs: string[]) => void) | null>(null)
-  const onChainChangedRef = useRef<((cid: string) => void) | null>(null)
+export default function ConnectWallet({ t }: Props) {
+	const [open, setOpen] = useState(false)
+	const [connecting, setConnecting] = useState<WalletKind | null>(null)
+	const [address, setAddress] = useState<string | null>(null)
+	const [chainId, setChainId] = useState<string | null>(null)
+	const [error, setError] = useState<string | null>(null)
+	const [currentKind, setCurrentKind] = useState<WalletKind | null>(null)
+
+	const providerRef = useRef<EIP1193Provider | null>(null)
+	const onAccountsChangedRef = useRef<((accs: string[]) => void) | null>(null)
+	const onChainChangedRef = useRef<((cid: string) => void) | null>(null)
+
+	const metaMaskInjected = useMemo(
+		() => Boolean(getInjectedProvider("metamask")),
+		[open]
+	)
+
+	const coinbaseInjected = useMemo(
+		() => Boolean(getInjectedProvider("coinbase")),
+		[open]
+	)
+
+	const okxInjected = useMemo(
+		() => Boolean(getInjectedProvider("okx")),
+		[open]
+	)
 
 
-  const metaMaskInjected = useMemo(
-    () => Boolean(getInjectedProvider("metamask")),
-    [open]
-  )
 
-  const coinbaseInjected = useMemo(
-    () => Boolean(getInjectedProvider("coinbase")),
-    [open]
-  )
+	useEffect(() => {
+			
+		// 暴露给外部（保持兼容）
+		window.openConnectWallet = () => setOpen(true);
+		(window as any).debugWalletDetection = debugWalletDetection;
+		return () => {
+				delete (window as any).debugWalletDetection;
+			if (window.openConnectWallet) delete window.openConnectWallet;
+		}
+	}, [])
 
-  const okxInjected = useMemo(
-    () => Boolean(getInjectedProvider("okx")),
-    [open]
-  )
+	function detachListeners() {
+		const provider = providerRef.current;
+		if (!provider) return;
+		if (onAccountsChangedRef.current) {
+			provider.removeListener?.("accountsChanged", onAccountsChangedRef.current);
+		}
+		if (onChainChangedRef.current) {
+			provider.removeListener?.("chainChanged", onChainChangedRef.current);
+		}
+		onAccountsChangedRef.current = null;
+		onChainChangedRef.current = null;
+	}
 
-  useEffect(() => {
-    // 暴露给外部（保持兼容）
-    window.openConnectWallet = () => setOpen(true);
-	(window as any).debugWalletDetection = debugWalletDetection;
-    return () => {
-		delete (window as any).debugWalletDetection;
-      if (window.openConnectWallet) delete window.openConnectWallet;
-    };
-  }, []);
+	const disconnect = React.useCallback(() => {
+			detachListeners();
+			providerRef.current = null;
+			setAddress(null);
+			setChainId(null);
+			setCurrentKind(null);
+			setError(null);
+			emitWalletEvent("wallet:disconnected", {});
+	}, []);
 
-  function detachListeners() {
-    const provider = providerRef.current;
-    if (!provider) return;
-    if (onAccountsChangedRef.current) {
-      provider.removeListener?.("accountsChanged", onAccountsChangedRef.current);
-    }
-    if (onChainChangedRef.current) {
-      provider.removeListener?.("chainChanged", onChainChangedRef.current);
-    }
-    onAccountsChangedRef.current = null;
-    onChainChangedRef.current = null;
-  }
-
-  const disconnect = React.useCallback(() => {
-		detachListeners();
-		providerRef.current = null;
-		setAddress(null);
-		setChainId(null);
-		setCurrentKind(null);
-		setError(null);
-		emitWalletEvent("wallet:disconnected", {});
-  }, []);
-
-  useEffect(() => {
-    window.disconnectWallet = () => disconnect();
-    return () => {
-      if (window.disconnectWallet) delete window.disconnectWallet;
-    };
-  }, [disconnect])
+	useEffect(() => {
+		window.disconnectWallet = () => disconnect();
+		return () => {
+		if (window.disconnectWallet) delete window.disconnectWallet;
+		};
+	}, [disconnect])
 
 	useEffect(() => {
 		if (open) {
@@ -318,34 +325,34 @@ export default function ConnectWallet() {
 		}
 	}, [open])
 
-  function finalizeConnect(opts: {
-		provider: EIP1193Provider;
-		account: string;
-		chainIdHex: string;
-		kind: WalletKind;
-  }) {
-    const { provider, account, chainIdHex, kind } = opts;
-    setAddress(account);
-    setChainId(chainIdHex);
-    setCurrentKind(kind);
-    setOpen(false);
+	function finalizeConnect(opts: {
+			provider: EIP1193Provider;
+			account: string;
+			chainIdHex: string;
+			kind: WalletKind;
+	}) {
+		const { provider, account, chainIdHex, kind } = opts;
+		setAddress(account);
+		setChainId(chainIdHex);
+		setCurrentKind(kind);
+		setOpen(false);
 
-    const walletClient = toWalletClient(provider, account)
+		const walletClient = toWalletClient(provider, account)
 
-    emitWalletEvent("wallet:connected", {
-      account,
-      chainId: parseInt(chainIdHex, 16),
-      kind,
-      walletType:
-        kind === "metamask"
-          ? "MetaMask"
-          : kind === "coinbase"
-          ? "Coinbase Wallet"
-          : "OKX Wallet",
-      provider,
-      walletClient,
-    });
-  }
+		emitWalletEvent("wallet:connected", {
+			account,
+			chainId: parseInt(chainIdHex, 16),
+			kind,
+			walletType:
+				kind === "metamask"
+				? "MetaMask"
+				: kind === "coinbase"
+				? "Coinbase Wallet"
+				: "OKX Wallet",
+			provider,
+			walletClient,
+		});
+	}
 
   useEffect(() => {
     // 仅移动端：MetaMask DApp 浏览器静默连接
@@ -484,120 +491,171 @@ export default function ConnectWallet() {
     }
   }
 
+
+  
+
   // —— 样式：黑白卡片 & 窄宽度（更贴合 Cashcode） ——
   // 容器：全宽，但卡片限制在 480px，并与上方元素留距
   // 卡片：白底、黑边、圆角、淡阴影；标题与按钮黑白反转
   // 列表项：黑色描边，hover 反转为黑底白字；副文本用中性灰
   return (
     <div className="relative w-full">
-      {/* 顶部操作：如已连接，显示 Disconnect */}
-      {address && (
-        <button
-          onClick={() => setOpen((s) => !s)}
-          className="px-3 py-2 rounded-xl border border-black text-black hover:bg-black hover:text-white transition"
-          title={address}
-        >
-          {open ? "Close" : "Disconnect"}
-        </button>
-      )}
+		{/* 顶部操作：如已连接，显示 Disconnect */}
+		{address && (
+			<button
+				onClick={() => setOpen((s) => !s)}
+				className="px-3 py-2 rounded-xl border border-black text-black hover:bg-black hover:text-white transition"
+				title={address}
+			>
+			{open ? "Close" : "Disconnect"}
+			</button>
+		)}
 
       {/* 内嵌钱包选择卡片 */}
+
       {open && (
-		<div className="w-full mt-4 rounded-2xl border border-black/20 bg-white text-black shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-			<div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
-			<h3 className="text-base font-semibold">Select Wallet</h3>
-			<button
-				onClick={() => setOpen(false)}
-				className="text-xs px-2 py-1 rounded-lg border border-black/20 hover:bg-[#f0f0f0] transition"
-			>
-				Close
-			</button>
+			<div className="w-full mt-4 rounded-2xl border border-black/20 bg-white text-black shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+				<div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
+					{/* 左侧：icon + Select Wallet + CC钱包按钮 */}
+					{
+					
+						<div className="flex items-center gap-3">
+							<img src={cash_icon} alt="CC Wallet" className="w-5 h-5" />
+							<h3 className="text-base font-semibold">{t("请选择钱包", "Select Wallet", "ウォレットを選択")}</h3>
+							
+						</div>
+						
+					}	
+
+					
+
+					{/* 右侧 Close 按钮 */}
+					<button
+						onClick={() => {
+							setOpen(false)
+						}}
+						className="text-xs px-2 py-1 rounded-lg border border-black/20 hover:bg-[#f0f0f0] transition"
+					>
+						Close
+					</button>
+				</div>
+				{
+					<>
+						<div className="p-4 space-y-3">
+						{/* MetaMask */}
+							<button
+								disabled={connecting !== null}
+								onClick={() => connect("metamask")}
+								className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
+							>
+								<div className="flex items-center gap-3">
+								<img src={metamask_icon} alt="MetaMask" className="w-7 h-7 rounded-sm" />
+								<div className="text-left">
+									<div className="text-sm font-medium">MetaMask</div>
+									<div className="text-xs text-black/60">
+									{ metaMaskInjected ? t(
+												"已检测到钱包环境",
+												"Wallet environment detected",
+												"ウォレット環境を検出しました"
+												)
+										: isMobile ? t(
+												"未检测到注入，点击在 MetaMask 内打开",
+												"No injection detected, tap to open in MetaMask",
+												"インジェクションが検出されません。MetaMaskで開くにはタップしてください"
+											)
+										: t(
+												"未检测到，点击将跳转安装",
+												"Not detected, click to install",
+												"検出されません。クリックしてインストールしてください"
+											)
+										}
+									</div>
+								</div>
+								</div>
+								<div className="text-xs">
+								{connecting === "metamask" ? t("连接中…", "Connecting…", "接続中…") : t("连接", "Connect", "接続")}
+								</div>
+							</button>
+
+							{/* Coinbase */}
+							<button
+								disabled={connecting !== null}
+								onClick={() => connect("coinbase")}
+								className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
+							>
+								<div className="flex items-center gap-3">
+								<img src={coinbase_icon} alt="Coinbase Wallet" className="w-7 h-7 rounded-sm" />
+								<div className="text-left">
+									<div className="text-sm font-medium">Coinbase</div>
+									<div className="text-xs text-black/60">
+									{coinbaseInjected ? t(
+										"已检测到浏览器扩展",
+										"Browser extension detected",
+										"ブラウザ拡張機能が検出されました"
+									) : t(
+										"未检测到，点击将跳转安装",
+										"Not detected, click to install",
+										"検出されません。クリックしてインストールしてください"
+									)}
+									</div>
+								</div>
+								</div>
+								<div className="text-xs">
+								{connecting === "coinbase" ? t("连接中…", "Connecting…", "接続中…") : t("连接", "Connect", "接続")}
+								</div>
+							</button>
+
+							{/* OKX */}
+							<button
+								disabled={connecting !== null}
+								onClick={() => connect("okx")}
+								className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
+							>
+								<div className="flex items-center gap-3">
+								<img src={okx_icon} alt="OKX Wallet" className="w-7 h-7 rounded-sm" />
+								<div className="text-left">
+									<div className="text-sm font-medium">OKX</div>
+									<div className="text-xs text-black/60">
+									{ okxInjected ? t(
+										"已检测到浏览器扩展",
+										"Browser extension detected",
+										"ブラウザー拡張機能を検出しました"
+										)
+										:
+										t(
+										"未检测到，点击将跳转安装",
+										"Not detected, click to install",
+										"検出されません。クリックしてインストールしてください"
+										)}
+									</div>
+								</div>
+								</div>
+								<div className="text-xs">
+								{connecting === "okx" ? t("连接中…", "Connecting…", "接続中…") : t("连接", "Connect", "接続")}
+								</div>
+							</button>
+
+							{/* 网络提示 */}
+							{chainId && chainId !== BASE_CHAIN_ID && (
+								<div className="mt-2 rounded-xl border border-black/20 bg-[#f9f9f9] text-black px-4 py-3 text-xs leading-relaxed">
+								<div className="font-medium">[ NETWORK NOTICE ]</div>
+								<div className="mt-1">
+									当前网络 <span className="font-mono">{parseInt(chainId, 16)}</span>，需要切换到
+									<span className="font-mono ml-1">Base (8453)</span>。
+								</div>
+								</div>
+							)}
+
+							{/* 错误提示 */}
+							{error && (
+								<div className="mt-2 rounded-xl border border-black/30 bg-[#fff] text-black px-4 py-3 text-xs break-words">
+									Error: {error}
+								</div>
+							)}
+						</div>
+					</>
+				}
 			</div>
-
-			<div className="p-4 space-y-3">
-			{/* MetaMask */}
-			<button
-				disabled={connecting !== null}
-				onClick={() => connect("metamask")}
-				className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
-			>
-				<div className="flex items-center gap-3">
-				<img src={metamask_icon} alt="MetaMask" className="w-7 h-7 rounded-sm" />
-				<div className="text-left">
-					<div className="text-sm font-medium">MetaMask</div>
-					<div className="text-xs text-black/60">
-					{metaMaskInjected
-						? "已检测到钱包环境"
-						: isMobile
-						? "未检测到注入，点击在 MetaMask 内打开"
-						: "未检测到，点击将跳转安装"}
-					</div>
-				</div>
-				</div>
-				<div className="text-xs">
-				{connecting === "metamask" ? "连接中…" : "连接"}
-				</div>
-			</button>
-
-			{/* Coinbase */}
-			<button
-				disabled={connecting !== null}
-				onClick={() => connect("coinbase")}
-				className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
-			>
-				<div className="flex items-center gap-3">
-				<img src={coinbase_icon} alt="Coinbase Wallet" className="w-7 h-7 rounded-sm" />
-				<div className="text-left">
-					<div className="text-sm font-medium">Coinbase Wallet</div>
-					<div className="text-xs text-black/60">
-					{coinbaseInjected ? "已检测到浏览器扩展" : "未检测到，点击将跳转安装"}
-					</div>
-				</div>
-				</div>
-				<div className="text-xs">
-				{connecting === "coinbase" ? "连接中…" : "连接"}
-				</div>
-			</button>
-
-			{/* OKX */}
-			<button
-				disabled={connecting !== null}
-				onClick={() => connect("okx")}
-				className="w-full flex items-center justify-between rounded-xl border border-black/20 bg-white px-4 py-3 hover:bg-[#f0f0f0] transition"
-			>
-				<div className="flex items-center gap-3">
-				<img src={okx_icon} alt="OKX Wallet" className="w-7 h-7 rounded-sm" />
-				<div className="text-left">
-					<div className="text-sm font-medium">OKX Wallet</div>
-					<div className="text-xs text-black/60">
-					{okxInjected ? "已检测到浏览器扩展" : "未检测到，点击将跳转安装"}
-					</div>
-				</div>
-				</div>
-				<div className="text-xs">
-				{connecting === "okx" ? "连接中…" : "连接"}
-				</div>
-			</button>
-
-			{/* 网络提示 */}
-			{chainId && chainId !== BASE_CHAIN_ID && (
-				<div className="mt-2 rounded-xl border border-black/20 bg-[#f9f9f9] text-black px-4 py-3 text-xs leading-relaxed">
-				<div className="font-medium">[ NETWORK NOTICE ]</div>
-				<div className="mt-1">
-					当前网络 <span className="font-mono">{parseInt(chainId, 16)}</span>，需要切换到
-					<span className="font-mono ml-1">Base (8453)</span>。
-				</div>
-				</div>
-			)}
-
-			{/* 错误提示 */}
-			{error && (
-				<div className="mt-2 rounded-xl border border-black/30 bg-[#fff] text-black px-4 py-3 text-xs break-words">
-				Error: {error}
-				</div>
-			)}
-			</div>
-		</div>
 		)}
 
     </div>
